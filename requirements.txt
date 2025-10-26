@@ -1,0 +1,12 @@
+# Core del Servidor Web (Necesario para cualquier Google Cloud Function HTTP)
+flask
+
+# Librería estándar para hacer solicitudes HTTP/API (esencial para ElevenLabs y Langflow)
+requests
+
+# Driver oficial de Python para conectar y gestionar MongoDB Atlas (la BBDD de Lia)
+pymongo
+
+# Utilidad opcional si necesitas manejar o generar objetos de tiempo con precisión
+# (Útil para gestionar los recordatorios de citas y medicación en el backend)
+python-dateutil

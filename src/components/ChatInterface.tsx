@@ -31,32 +31,80 @@ const ChatInterface = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    // Define el tipo para la sesión
+const getSessionId = () => {
+  // En una app real, esto sería el ID de usuario autenticado. 
+  // Por ahora, usamos un ID simple para la memoria de Langflow.
+  return "lia_anon_user_001"; 
+}
 
-    const userMessage = input.trim();
-    setInput("");
-    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
-    setIsLoading(true);
+const LIA_ORCHESTRATOR_URL = "https://TU_URL_PUBLICA_DE_CLOUD_FUNCTION.net/lia-agent-orquestrator"; // <-- REEMPLAZA ESTA URL
 
-    try {
-      // This will connect to Lovable AI backend
-      // For now, simulating a response
-      setTimeout(() => {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: "Entiendo tu mensaje. Pronto podré ayudarte de forma más completa con la integración de IA. ¿Hay algo más en lo que pueda asistirte?"
-        }]);
-        setIsLoading(false);
-      }, 1000);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No pude procesar tu mensaje. Inténtalo de nuevo.",
-        variant: "destructive"
-      });
-      setIsLoading(false);
+const handleSend = async () => {
+  if (!input.trim()) return;
+
+  const userMessage = input.trim();
+  setInput("");
+  setMessages(prev => [...prev, { role: "user", content: userMessage }]);
+  setIsLoading(true);
+
+  try {
+    const response = await fetch(LIA_ORCHESTRATOR_URL, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json" 
+      },
+      body: JSON.stringify({
+        text: userMessage,
+        session_id: getSessionId() // Envía el ID de sesión para la memoria de Langflow
+      })
+    });
+
+    if (!response.ok) {
+      // Si el backend devuelve un código de error (ej. 500)
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Error HTTP: ${response.status}`);
     }
-  };
+
+    // 1. OBTENER EL AUDIO BINARIO
+    const audioBlob = await response.blob();
+    
+    // 2. CREAR UN OBJETO URL PARA EL AUDIO
+    const audioUrl = URL.createObjectURL(audioBlob);
+    
+    // 3. REPRODUCIR EL AUDIO DE ELEVENLABS
+    const audio = new Audio(audioUrl);
+    
+    // 4. Esperar a que el audio termine para quitar el loading (opcional)
+    const playPromise = new Promise(resolve => {
+        audio.onended = resolve;
+        audio.onerror = resolve;
+    });
+
+    audio.play();
+    
+    // Por simplicidad en este MVP, Lia no tiene un mensaje de texto que mostrar, 
+    // ya que la Cloud Function SOLO devuelve el audio. 
+    // Para ver el texto en el chat, tu Cloud Function debería devolver TEXTO y AUDIO.
+    // Por ahora, solo añadiremos el mensaje de audio para simular la conversación.
+    
+    // Si Langflow devuelve el texto de la respuesta en la cabecera, se podría usar.
+    // Por simplicidad, aquí puedes optar por mostrar el mensaje de texto del usuario
+    // o modificar el backend para que devuelva el texto junto con el audio.
+
+    await playPromise;
+
+  } catch (error) {
+    console.error("Fallo en el backend de Lia:", error);
+    toast({
+      title: "Error de Conexión",
+      description: `Lia no pudo responder: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      variant: "destructive"
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const toggleVoice = () => {
     setIsListening(!isListening);
